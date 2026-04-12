@@ -6,8 +6,8 @@
 
 ## Summary
 
-- Phases: 5
-- v1 requirements mapped: 12/12
+- Phases: 6
+- v1 requirements mapped: 15/15
 - Coverage: 100%
 
 | # | Phase | Goal | Requirements | Success Criteria |
@@ -16,7 +16,8 @@
 | 2 | Safety and Guardrail Hardening | Make safety detection and runtime guards robust | SAFE-01, SAFE-02, SAFE-03 | 4 |
 | 3 | Regression Safety Net | Establish automated test coverage for critical logic | TEST-01, TEST-02, TEST-03 | 4 |
 | 4 | Reproducibility and Runtime Ops | Improve artifact lineage and runtime startup behavior | DATA-01, DATA-02 | 3 |
-| 5 | Documentation Alignment | Ensure docs match actual behavior and APIs | DOCS-01 | 3 |
+| 5 | Disease Scope Specialization | Optimize hallucination detection for selected 2-3 diseases before scaling | FOCUS-01, FOCUS-02, FOCUS-03 | 4 |
+| 6 | Documentation Alignment | Ensure docs match actual behavior and APIs | DOCS-01 | 3 |
 
 ## Phase Details
 
@@ -75,7 +76,21 @@ Success criteria:
 
 **UI hint**: no
 
-## Phase 5: Documentation Alignment
+## Phase 5: Disease Scope Specialization
+
+Goal: Increase precision and accuracy by specializing hallucination detection to 2-3 selected diseases before broad scaling.
+
+Requirements: FOCUS-01, FOCUS-02, FOCUS-03
+
+Success criteria:
+1. Selected disease set (2-3 diseases) is explicitly locked in config/data/evaluation artifacts.
+2. Disease-specific claim and risk patterns are tuned and validated for selected diseases.
+3. Evaluation reports precision and accuracy per selected disease against baseline.
+4. Broad multi-disease expansion remains gated until specialist metrics meet target thresholds.
+
+**UI hint**: no
+
+## Phase 6: Documentation Alignment
 
 Goal: Align all top-level project docs with implemented behavior and current architecture.
 
@@ -88,6 +103,10 @@ Success criteria:
 
 **UI hint**: no
 
+## Post-v1 Expansion Gate
+
+Broad scaling to many diseases is intentionally deferred. Expansion starts only after specialist metrics from Phase 5 are validated.
+
 ---
-*Last updated: 2026-04-11 after roadmap initialization*
+*Last updated: 2026-04-12 after roadmap adjustment (specialization before broad scaling)*
 

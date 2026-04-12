@@ -1,7 +1,7 @@
 # Requirements: Medical AI Hallucination Detection and Verification System
 
 **Defined:** 2026-04-11
-**Core Value:** Potentially unsafe or implausible medical claims are identified reliably enough to trigger explicit expert-review decisions before trust is placed in generated medical text.
+**Core Value:** Potentially unsafe or implausible medical claims are identified with high precision for a tightly scoped disease set (2-3 diseases), triggering explicit expert-review decisions before trust is placed in generated medical text.
 
 ## v1 Requirements
 
@@ -10,6 +10,12 @@
 - [ ] **VERI-01**: Runtime thresholds and retrieval/scoring parameters are sourced from centralized configuration only
 - [ ] **VERI-02**: Claim extractor and verifier use one stable claim-field schema with explicit validation
 - [ ] **VERI-03**: Verification output includes deterministic risk/safety structures for downstream consumers
+
+### Disease Specialization
+
+- [ ] **FOCUS-01**: System is configured and evaluated for 2-3 explicitly selected diseases only
+- [ ] **FOCUS-02**: Disease-specific claim/risk patterns are tuned for selected diseases
+- [ ] **FOCUS-03**: Evaluation reports precision and accuracy per selected disease on a fixed benchmark set
 
 ### Safety and Guardrails
 
@@ -39,6 +45,7 @@
 - **EXT-01**: Incremental KB refresh mode without full end-to-end rebuild
 - **EXT-02**: Native PDF export pipeline for reports
 - **EXT-03**: Pluggable vector store backend for larger-than-local scale
+- **EXT-04**: Expand from specialist scope to broad multi-disease coverage only after specialist metrics pass target thresholds
 
 ## Out of Scope
 
@@ -47,6 +54,7 @@
 | Clinical diagnosis automation | System is assistive verification tooling, not an autonomous clinical decision engine |
 | Multi-tenant production SaaS deployment | Current milestone is research hardening in local/brownfield environment |
 | Full EHR integration | External interoperability is beyond current dissertation scope |
+| Broad multi-disease v1 coverage | Strategy is specialist-first to maximize precision and accuracy |
 
 ## Traceability
 
@@ -63,14 +71,17 @@
 | TEST-03 | Phase 3 | Pending |
 | DATA-01 | Phase 4 | Pending |
 | DATA-02 | Phase 4 | Pending |
-| DOCS-01 | Phase 5 | Pending |
+| FOCUS-01 | Phase 5 | Pending |
+| FOCUS-02 | Phase 5 | Pending |
+| FOCUS-03 | Phase 5 | Pending |
+| DOCS-01 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 12 total
-- Mapped to phases: 12
+- v1 requirements: 15 total
+- Mapped to phases: 15
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-11*
-*Last updated: 2026-04-11 after initial definition*
+*Last updated: 2026-04-12 after specialist-scope strategy update*
 

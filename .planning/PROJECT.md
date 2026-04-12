@@ -2,11 +2,11 @@
 
 ## What This Is
 
-This is a brownfield research prototype that verifies medical claims from clinical text against a PubMed-derived knowledge base. It extracts claims, retrieves supporting evidence, scores confidence, and produces risk + safety outputs for clinician review. The primary users are dissertation stakeholders and technical evaluators focused on medical AI safety behavior.
+This is a brownfield research prototype that verifies medical claims from clinical text against a PubMed-derived knowledge base. It extracts claims, retrieves supporting evidence, scores confidence, and produces risk plus safety outputs for clinician review. Current strategy is disease-specialist mode: optimize hallucination detection deeply for 2-3 diseases before broad multi-disease scaling.
 
 ## Core Value
 
-Potentially unsafe or implausible medical claims are identified reliably enough to trigger explicit expert-review decisions before trust is placed in generated medical text.
+Potentially unsafe or implausible medical claims are identified with high precision for a tightly scoped disease set (2-3 diseases), triggering explicit expert-review decisions before trust is placed in generated medical text.
 
 ## Requirements
 
@@ -20,6 +20,7 @@ Potentially unsafe or implausible medical claims are identified reliably enough 
 
 - [ ] Unify runtime configuration so all thresholds and retrieval parameters are sourced from `src/medical_config.py`
 - [ ] Enforce a stable claim schema contract between extractor and verifier
+- [ ] Narrow verification scope to 2-3 selected diseases and optimize hallucination detection quality for those diseases
 - [ ] Add robust safety detection beyond brittle exact keyword matching
 - [ ] Add input validation and enforce max-claims/length guards during verification
 - [ ] Add explicit degraded-mode signaling/failure behavior when core embedding models are unavailable
@@ -30,8 +31,9 @@ Potentially unsafe or implausible medical claims are identified reliably enough 
 
 ### Out of Scope
 
-- Immediate clinical deployment decision support — current project is a research prototype, not regulated clinical software
-- Full real-time distributed serving infrastructure — current scope is local/offline dissertation execution
+- Immediate clinical deployment decision support - current project is a research prototype, not regulated clinical software
+- Full real-time distributed serving infrastructure - current scope is local/offline dissertation execution
+- Broad multi-disease verification in v1 - deferred until specialist disease performance targets are met
 
 ## Context
 
@@ -42,7 +44,7 @@ Potentially unsafe or implausible medical claims are identified reliably enough 
 
 ## Constraints
 
-- **Domain Safety**: Medical outputs must always be framed as assistive and non-diagnostic — required for research ethics and safe usage.
+- **Domain Safety**: Medical outputs must always be framed as assistive and non-diagnostic - required for research ethics and safe usage.
 - **Brownfield Compatibility**: New work must preserve current pipeline outputs and file formats unless migrations are explicitly defined.
 - **Reproducibility**: Thresholds, scoring behavior, and KB artifact lineage must remain auditable for dissertation review.
 - **Resource Profile**: Local CPU-first execution should remain viable; avoid requiring new heavy infrastructure for v1 improvements.
@@ -52,8 +54,9 @@ Potentially unsafe or implausible medical claims are identified reliably enough 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Initialize as brownfield project | Existing implemented system and codebase map already available | ✓ Good |
-| Use centralized config as single source of truth | Reduces drift and hidden magic numbers across modules | — Pending |
-| Prioritize safety/test hardening before feature expansion | Current highest risk is reliability and validation quality, not missing UI features | — Pending |
+| Use centralized config as single source of truth | Reduces drift and hidden magic numbers across modules | - Pending |
+| Prioritize safety/test hardening before feature expansion | Current highest risk is reliability and validation quality, not missing UI features | - Pending |
+| Prioritize specialist accuracy over broad coverage | Focus on 2-3 diseases expected to improve precision and reduce false positives/false negatives | ✓ Good |
 
 ## Evolution
 
@@ -73,5 +76,5 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-11 after initialization*
+*Last updated: 2026-04-12 after scope strategy update (2-3 disease specialization)*
 
