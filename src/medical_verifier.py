@@ -398,15 +398,55 @@ class MedicalVerifier:
         
         return domain_mapping.get(fact_id, 'General Medicine')
 
+    # Required claim keys that must be present at the verifier input boundary.
+    # Mirrors _REQUIRED_CLAIM_KEYS in claim_extractor_fixed but is defined here
+    # so the verifier can enforce the contract independently (D-09).
+    _REQUIRED_VERIFIER_CLAIM_KEYS = frozenset({
+        'claim_text',
+        'type',
+        'medical_entities',
+        'verification_confidence',
+        'verification_score',
+    })
+
+    @staticmethod
+    def _validate_verifier_claim_schema(claim: Dict, index: int = -1) -> None:
+        """
+        Raise ValueError if *claim* is missing any required key at the verifier
+        input boundary (T-01-04, D-08, D-09).
+
+        Parameters
+        ----------
+        claim:
+            The claim dict to validate.
+        index:
+            Position of the claim in its containing list (used in the error
+            message to aid debugging).
+        """
+        missing = MedicalVerifier._REQUIRED_VERIFIER_CLAIM_KEYS - set(claim.keys())
+        if missing:
+            context = f" at claim index {index}" if index >= 0 else ""
+            raise ValueError(
+                f"Verifier input schema violation{context}: "
+                f"missing required keys {sorted(missing)}. "
+                "Canonical schema requires 'claim_text' (not legacy 'text'). "
+                "Ensure ClaimExtractor output is not modified before verification."
+            )
+
     def _assess_overall_risk(self, claims: List[Dict]) -> Dict[str, Any]:
         """multi-layer risk assessment with medical plausibility analysis"""
         if not claims:
             return {"level": "UNKNOWN", "reason": "No claims extracted"}
-        
+
+        # Validate schema at verifier input boundary before any risk logic runs
+        # (T-01-04, D-08, D-09). Raises ValueError on first malformed claim.
+        for i, claim in enumerate(claims):
+            self._validate_verifier_claim_schema(claim, index=i)
+
         # LAYER 1: Medical Plausibility Analysis
         all_implausibility_issues = []
         all_evidence_violations = []
-        
+
         for claim in claims:
             # Canonical schema — claim_text is the only accepted key (D-07, D-08, D-11).
             claim_text = claim['claim_text']
