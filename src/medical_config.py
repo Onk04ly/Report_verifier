@@ -99,6 +99,51 @@ class ConfigurationSettings:
     OUTLIER_PENALTY_CAP: float = 0.4
 
     # ------------------------------------------------------------------ #
+    # Evidence grade weights for confidence scoring
+    # Used in calculate_confidence_score to translate letter grades to
+    # numeric quality multipliers.
+    # ------------------------------------------------------------------ #
+    GRADE_WEIGHT_A: float = 1.0   # Grade A evidence (highest quality)
+    GRADE_WEIGHT_B: float = 0.8   # Grade B evidence
+    GRADE_WEIGHT_C: float = 0.6   # Grade C evidence
+    GRADE_WEIGHT_D: float = 0.4   # Grade D evidence (lowest quality)
+
+    # ------------------------------------------------------------------ #
+    # Plausibility penalty values used in _check_*_optimized sub-methods.
+    # These map to named severity levels; numeric values preserved exactly.
+    # ------------------------------------------------------------------ #
+    PLAUSIBILITY_PENALTY_CRITICAL: float = 1.0   # Absolute impossibility
+    PLAUSIBILITY_PENALTY_VERY_HIGH: float = 0.95  # Near-certain violation
+    PLAUSIBILITY_PENALTY_HIGH: float = 0.9        # Strong implausibility
+    PLAUSIBILITY_PENALTY_MEDIUM_HIGH: float = 0.8 # Moderate-high implausibility
+    PLAUSIBILITY_PENALTY_MEDIUM: float = 0.7      # Moderate implausibility
+    PLAUSIBILITY_PENALTY_LOW: float = 0.6         # Mild implausibility
+
+    # ------------------------------------------------------------------ #
+    # Evidence absence penalty constants used in _detect_evidence_absence_penalty.
+    # Distance cutoffs (FAISS L2 space); penalty multipliers applied when
+    # supporting evidence quality is insufficient.
+    # ------------------------------------------------------------------ #
+    EVIDENCE_ABSENCE_PENALTY_NO_FACTS: float = 0.8    # No supporting facts at all
+    EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_2: float = 0.4 # Two or more C/D grade facts
+    EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_1: float = 0.2 # One C/D grade fact
+    EVIDENCE_ABSENCE_DIST_CRITICAL: float = 25.0      # avg distance > this: high penalty
+    EVIDENCE_ABSENCE_PENALTY_DIST_HIGH: float = 0.5   # Penalty for avg dist > CRITICAL
+    EVIDENCE_ABSENCE_DIST_HIGH: float = 20.0          # avg distance > this: medium penalty
+    EVIDENCE_ABSENCE_PENALTY_DIST_MEDIUM: float = 0.3 # Penalty for avg dist > HIGH
+    EVIDENCE_ABSENCE_DIST_ALL_IRRELEVANT: float = 30.0 # All facts beyond this = irrelevant
+    EVIDENCE_ABSENCE_PENALTY_ALL_IRRELEVANT: float = 0.7 # Penalty when all facts irrelevant
+
+    # ------------------------------------------------------------------ #
+    # Negation and uncertainty confidence multipliers used in
+    # identify_medical_claims to adjust final base_confidence values.
+    # ------------------------------------------------------------------ #
+    NEGATION_CONFIDENCE_BASE_HIGH: float = 0.8   # Base confidence for non-entity claims
+    NEGATION_CONFIDENCE_BASE_LOW: float = 0.6    # Base confidence for entity_based claims
+    NEGATION_CONFIDENCE_PENALTY: float = 0.7     # Multiplier applied when has_negation
+    UNCERTAINTY_CONFIDENCE_PENALTY: float = 0.6  # Multiplier applied when has_uncertainty
+
+    # ------------------------------------------------------------------ #
     # __post_init__ validation
     # ------------------------------------------------------------------ #
     def __post_init__(self) -> None:
@@ -190,6 +235,37 @@ class ConfigurationSettings:
         _check_positive_float("OUTLIER_PENALTY_SCALING", self.OUTLIER_PENALTY_SCALING)
         _check_probability("OUTLIER_PENALTY_CAP", self.OUTLIER_PENALTY_CAP)
 
+        # Evidence grade weights
+        _check_probability("GRADE_WEIGHT_A", self.GRADE_WEIGHT_A)
+        _check_probability("GRADE_WEIGHT_B", self.GRADE_WEIGHT_B)
+        _check_probability("GRADE_WEIGHT_C", self.GRADE_WEIGHT_C)
+        _check_probability("GRADE_WEIGHT_D", self.GRADE_WEIGHT_D)
+
+        # Plausibility penalty values
+        _check_probability("PLAUSIBILITY_PENALTY_CRITICAL", self.PLAUSIBILITY_PENALTY_CRITICAL)
+        _check_probability("PLAUSIBILITY_PENALTY_VERY_HIGH", self.PLAUSIBILITY_PENALTY_VERY_HIGH)
+        _check_probability("PLAUSIBILITY_PENALTY_HIGH", self.PLAUSIBILITY_PENALTY_HIGH)
+        _check_probability("PLAUSIBILITY_PENALTY_MEDIUM_HIGH", self.PLAUSIBILITY_PENALTY_MEDIUM_HIGH)
+        _check_probability("PLAUSIBILITY_PENALTY_MEDIUM", self.PLAUSIBILITY_PENALTY_MEDIUM)
+        _check_probability("PLAUSIBILITY_PENALTY_LOW", self.PLAUSIBILITY_PENALTY_LOW)
+
+        # Evidence absence penalty constants
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_NO_FACTS", self.EVIDENCE_ABSENCE_PENALTY_NO_FACTS)
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_2", self.EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_2)
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_1", self.EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_1)
+        _check_positive_float("EVIDENCE_ABSENCE_DIST_CRITICAL", self.EVIDENCE_ABSENCE_DIST_CRITICAL)
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_DIST_HIGH", self.EVIDENCE_ABSENCE_PENALTY_DIST_HIGH)
+        _check_positive_float("EVIDENCE_ABSENCE_DIST_HIGH", self.EVIDENCE_ABSENCE_DIST_HIGH)
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_DIST_MEDIUM", self.EVIDENCE_ABSENCE_PENALTY_DIST_MEDIUM)
+        _check_positive_float("EVIDENCE_ABSENCE_DIST_ALL_IRRELEVANT", self.EVIDENCE_ABSENCE_DIST_ALL_IRRELEVANT)
+        _check_probability("EVIDENCE_ABSENCE_PENALTY_ALL_IRRELEVANT", self.EVIDENCE_ABSENCE_PENALTY_ALL_IRRELEVANT)
+
+        # Negation / uncertainty confidence multipliers
+        _check_probability("NEGATION_CONFIDENCE_BASE_HIGH", self.NEGATION_CONFIDENCE_BASE_HIGH)
+        _check_probability("NEGATION_CONFIDENCE_BASE_LOW", self.NEGATION_CONFIDENCE_BASE_LOW)
+        _check_probability("NEGATION_CONFIDENCE_PENALTY", self.NEGATION_CONFIDENCE_PENALTY)
+        _check_probability("UNCERTAINTY_CONFIDENCE_PENALTY", self.UNCERTAINTY_CONFIDENCE_PENALTY)
+
         if errors:
             joined = "\n  ".join(errors)
             raise ValueError(
@@ -251,6 +327,15 @@ class ConfigurationSettings:
             'outlier_penalty_base': self.OUTLIER_PENALTY_BASE,
             'outlier_penalty_scaling': self.OUTLIER_PENALTY_SCALING,
             'outlier_penalty_cap': self.OUTLIER_PENALTY_CAP,
+        }
+
+    def get_grade_weights(self) -> Dict[str, float]:
+        """Return evidence grade letter-to-numeric weight mapping."""
+        return {
+            'A': self.GRADE_WEIGHT_A,
+            'B': self.GRADE_WEIGHT_B,
+            'C': self.GRADE_WEIGHT_C,
+            'D': self.GRADE_WEIGHT_D,
         }
 
     def print_config(self) -> None:

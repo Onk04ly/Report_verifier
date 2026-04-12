@@ -317,7 +317,7 @@ class ClaimExtractor:
             cosine_similarities.append(cos_sim)
         
         # Enhanced preprocessing-based quality scoring
-        grade_weights = {'A': 1.0, 'B': 0.8, 'C': 0.6, 'D': 0.4}
+        grade_weights = self.config.get_grade_weights()
         evidence_scores = [grade_weights.get(grade, 0.5) for grade in evidence_grades]
         
         # Calculate base similarity score
@@ -443,11 +443,11 @@ class ClaimExtractor:
         # Fast lookup using sets instead of regex on full text
         impossible_combinations = [
             # Cure claims for incurable conditions
-            ({'cancer', 'diabetes', 'hiv', 'aids', 'alzheimer'}, {'cured', 'healed', 'reversed'}, 0.9),
+            ({'cancer', 'diabetes', 'hiv', 'aids', 'alzheimer'}, {'cured', 'healed', 'reversed'}, self.config.PLAUSIBILITY_PENALTY_HIGH),
             # Instant results for slow processes
-            ({'weight', 'muscle', 'bone'}, {'instant', 'immediate', 'overnight'}, 0.8),
+            ({'weight', 'muscle', 'bone'}, {'instant', 'immediate', 'overnight'}, self.config.PLAUSIBILITY_PENALTY_MEDIUM_HIGH),
             # Age-related impossibilities
-            ({'aging', 'wrinkles', 'gray'}, {'stopped', 'reversed', 'eliminated'}, 0.7),
+            ({'aging', 'wrinkles', 'gray'}, {'stopped', 'reversed', 'eliminated'}, self.config.PLAUSIBILITY_PENALTY_MEDIUM),
         ]
         
         max_penalty = 0.0
@@ -462,13 +462,13 @@ class ClaimExtractor:
     def _check_evidence_based_violations_optimized(self, text_lower: str, entity_set: set) -> float:
         """Optimized evidence-based medicine violation detection"""
         critical_patterns = [
-            (r'type\s*1.*diabetes.*(?:cured|without.*insulin)', 0.95),
-            (r'(?:meningitis|sepsis|cardiac.*arrest).*(?:natural|herbs|homeopathic).*(?:only|treatment|cured)', 1.0),
-            (r'(?:metastatic|stage.*[34]).*cancer.*(?:cured|remission).*(?:diet|natural|yoga)', 0.9),
-            (r'(?:heart failure|cardiac function).*(?:full recovery|cured).*(?:acupuncture|meditation|natural)', 0.9),
-            (r'(?:stroke|neurological function).*(?:regained|recovered).*(?:24 hours|instant|essential oils)', 0.95),
-            (r'(?:bacterial meningitis).*(?:homeopathic|natural).*(?:cured|recovery|without antibiotics)', 1.0),
-            (r'(?:advanced|metastatic).*cancer.*(?:cancer-free|cured).*(?:diet|yoga|natural).*(?:without.*(?:surgery|chemotherapy))', 0.9),
+            (r'type\s*1.*diabetes.*(?:cured|without.*insulin)', self.config.PLAUSIBILITY_PENALTY_VERY_HIGH),
+            (r'(?:meningitis|sepsis|cardiac.*arrest).*(?:natural|herbs|homeopathic).*(?:only|treatment|cured)', self.config.PLAUSIBILITY_PENALTY_CRITICAL),
+            (r'(?:metastatic|stage.*[34]).*cancer.*(?:cured|remission).*(?:diet|natural|yoga)', self.config.PLAUSIBILITY_PENALTY_HIGH),
+            (r'(?:heart failure|cardiac function).*(?:full recovery|cured).*(?:acupuncture|meditation|natural)', self.config.PLAUSIBILITY_PENALTY_HIGH),
+            (r'(?:stroke|neurological function).*(?:regained|recovered).*(?:24 hours|instant|essential oils)', self.config.PLAUSIBILITY_PENALTY_VERY_HIGH),
+            (r'(?:bacterial meningitis).*(?:homeopathic|natural).*(?:cured|recovery|without antibiotics)', self.config.PLAUSIBILITY_PENALTY_CRITICAL),
+            (r'(?:advanced|metastatic).*cancer.*(?:cancer-free|cured).*(?:diet|yoga|natural).*(?:without.*(?:surgery|chemotherapy))', self.config.PLAUSIBILITY_PENALTY_HIGH),
         ]
         
         max_penalty = 0.0
@@ -482,8 +482,8 @@ class ClaimExtractor:
         """Optimized treatment efficacy analysis"""
         # Fast checks for unrealistic treatment claims
         unrealistic_claims = [
-            (['natural', 'herbs', 'supplements'], ['100%', 'guaranteed', 'always'], 0.7),
-            (['diet', 'exercise'], ['cancer', 'diabetes', 'heart'], 0.6),
+            (['natural', 'herbs', 'supplements'], ['100%', 'guaranteed', 'always'], self.config.PLAUSIBILITY_PENALTY_MEDIUM),
+            (['diet', 'exercise'], ['cancer', 'diabetes', 'heart'], self.config.PLAUSIBILITY_PENALTY_LOW),
         ]
         
         max_penalty = 0.0
@@ -504,16 +504,16 @@ class ClaimExtractor:
         
         for pattern in instant_patterns:
             if re.search(pattern, text_lower):
-                return 0.6
-        
+                return self.config.PLAUSIBILITY_PENALTY_LOW
+
         return 0.0
     
     def _check_contraindications_optimized(self, text_lower: str, entity_set: set) -> float:
         """Optimized contraindication detection"""
         # Critical safety combinations
         safety_violations = [
-            (r'(?:pregnant|pregnancy).*(?:herbs|supplements).*(?:only|instead)', 0.8),
-            (r'(?:child|infant).*(?:adult.*medication|herbs).*(?:safe|recommended)', 0.8),
+            (r'(?:pregnant|pregnancy).*(?:herbs|supplements).*(?:only|instead)', self.config.PLAUSIBILITY_PENALTY_MEDIUM_HIGH),
+            (r'(?:child|infant).*(?:adult.*medication|herbs).*(?:safe|recommended)', self.config.PLAUSIBILITY_PENALTY_MEDIUM_HIGH),
         ]
         
         max_penalty = 0.0
@@ -550,38 +550,38 @@ class ClaimExtractor:
     def _detect_evidence_absence_penalty(self, supporting_facts: list) -> float:
         """Detect poor evidence quality and relevance"""
         if not supporting_facts:
-            return 0.8  # No supporting facts is very bad
-        
+            return self.config.EVIDENCE_ABSENCE_PENALTY_NO_FACTS
+
         penalty = 0.0
-        
+
         # Check evidence grades (if available from preprocessed knowledge base)
         evidence_grades = []
         distances = []
-        
+
         for fact in supporting_facts[:3]:  # Check top 3 facts
             grade = fact.get('evidence_grade', 'C')
             distance = fact.get('distance', 50)
             evidence_grades.append(grade)
             distances.append(distance)
-        
+
         # Penalty for low-grade evidence
         low_grade_count = sum(1 for grade in evidence_grades if grade in ['C', 'D'])
         if low_grade_count >= 2:
-            penalty = max(penalty, 0.4)
+            penalty = max(penalty, self.config.EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_2)
         elif low_grade_count >= 1:
-            penalty = max(penalty, 0.2)
-        
+            penalty = max(penalty, self.config.EVIDENCE_ABSENCE_PENALTY_LOW_GRADE_1)
+
         # Penalty for high average distance in supporting facts
         avg_distance = sum(distances) / len(distances)
-        if avg_distance > 25:
-            penalty = max(penalty, 0.5)
-        elif avg_distance > 20:
-            penalty = max(penalty, 0.3)
-        
+        if avg_distance > self.config.EVIDENCE_ABSENCE_DIST_CRITICAL:
+            penalty = max(penalty, self.config.EVIDENCE_ABSENCE_PENALTY_DIST_HIGH)
+        elif avg_distance > self.config.EVIDENCE_ABSENCE_DIST_HIGH:
+            penalty = max(penalty, self.config.EVIDENCE_ABSENCE_PENALTY_DIST_MEDIUM)
+
         # Penalty if all supporting facts are irrelevant (very high distances)
-        if all(d > 30 for d in distances):
-            penalty = max(penalty, 0.7)
-        
+        if all(d > self.config.EVIDENCE_ABSENCE_DIST_ALL_IRRELEVANT for d in distances):
+            penalty = max(penalty, self.config.EVIDENCE_ABSENCE_PENALTY_ALL_IRRELEVANT)
+
         return penalty
         
     def get_sentence_embedding(self, text: str) -> np.ndarray:
@@ -726,11 +726,13 @@ class ClaimExtractor:
                 confidence_level, confidence_score = self.calculate_confidence_score(sentence, supporting_facts)
 
                 # Adjust confidence based on negation/uncertainty - More aggressive penalties
-                base_confidence = 0.8 if claim_type != "entity_based" else 0.6
+                base_confidence = (self.config.NEGATION_CONFIDENCE_BASE_HIGH
+                                   if claim_type != "entity_based"
+                                   else self.config.NEGATION_CONFIDENCE_BASE_LOW)
                 if has_negation:
-                    base_confidence *= 0.7  # More reduction for negated claims (was 0.9)
+                    base_confidence *= self.config.NEGATION_CONFIDENCE_PENALTY
                 if has_uncertainty:
-                    base_confidence *= 0.6  # Much more reduction for uncertain claims (was 0.8)
+                    base_confidence *= self.config.UNCERTAINTY_CONFIDENCE_PENALTY
 
                 claim = {
                     'sentence_id': i,
