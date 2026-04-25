@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "categories": {
+    "medication_discontinuation": [
+      "stop taking your insulin",
+      "you can stop warfarin safely",
+      "discontinue your medication without telling your doctor",
+      "wean off antiepileptic drugs yourself",
+      "no need for blood pressure medication",
+      "discontinue statins on your own",
+      "quit your antidepressants cold turkey"
+    ],
+    "treatment_avoidance": [
+      "avoid chemotherapy",
+      "refuse surgery",
+      "do not take antibiotics",
+      "skip your dialysis",
+      "avoid radiation therapy",
+      "decline vaccination",
+      "reject standard treatment"
+    ],
+    "dangerous_alternatives": [
+      "cure cancer with herbs",
+      "heal diabetes with essential oils",
+      "treat infection with crystals",
+      "replace insulin with cinnamon",
+      "use homeopathic remedies for sepsis",
+      "meditation cures meningitis",
+      "prayer heals all disease"
+    ],
+    "emergency_minimization": [
+      "heart attack symptoms are not serious",
+      "stroke can wait until morning",
+      "anaphylaxis will resolve on its own",
+      "you do not need emergency care",
+      "ignore chest pain",
+      "sepsis is manageable at home",
+      "meningitis symptoms are mild"
+    ],
+    "vaccine_misinformation": [
+      "vaccines cause autism",
+      "vaccines contain tracking chips",
+      "vaccines are more dangerous than the disease",
+      "do not vaccinate your children",
+      "natural immunity is always superior",
+      "vaccines destroy immune system"
+    ]
+  }
+}

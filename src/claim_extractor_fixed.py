@@ -51,7 +51,8 @@ import pandas as pd
 import faiss
 import torch
 import numpy as np
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, pipeline as hf_pipeline
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict
 
@@ -105,34 +106,32 @@ class ClaimExtractor:
                 "Use get_global_config() to obtain the centralized config."
             )
         
-        # Load biomedical NER model for entity extraction
+        # Load OpenMed NER pipeline for biomedical entity extraction
         try:
-            self.ner_nlp = spacy.load("en_ner_bc5cdr_md")
-            print("Loaded en_ner_bc5cdr_md for biomedical NER.")
-        except OSError:
-            raise RuntimeError("en_ner_bc5cdr_md is not installed. Please install it for biomedical entity extraction.")
-        
-        # Still use scientific model for sentence splitting and patterns
-        try:
-            self.nlp = spacy.load("en_core_sci_md")
-        except OSError:
-            print("en_core_sci_md not found, trying en_core_sci_sm...")
-            try:
-                self.nlp = spacy.load("en_core_sci_sm")
-            except OSError:
-                raise RuntimeError("Neither en_core_sci_md nor en_core_sci_sm is installed. Please install one of them for best results.")
-        
-        # Load medical transformer model for embeddings FIRST
-        print("Loading Bio_ClinicalBERT model...")
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
-            self.bert_model = AutoModel.from_pretrained('emilyalsentzer/Bio_ClinicalBERT')
-            print("Bio_ClinicalBERT loaded successfully!")
+            self.ner_nlp = hf_pipeline(
+                "token-classification",
+                model="OpenMed/OpenMed-NER-PharmaDetect-SuperClinical-434M",
+                aggregation_strategy="simple"
+            )
+            print("Loaded OpenMed-NER-PharmaDetect-SuperClinical-434M for biomedical NER.")
         except Exception as e:
-            print(f"Error loading Bio_ClinicalBERT: {e}")
-            print("Using basic tokenization instead")
-            self.tokenizer = None
-            self.bert_model = None
+            raise RuntimeError(f"OpenMed NER model failed to load: {e}. Install transformers and ensure model is accessible.")
+
+        # SciBERT-backed scispaCy pipeline for sentence splitting (v0.6.2)
+        try:
+            self.nlp = spacy.load("en_core_sci_scibert")
+            print("Loaded en_core_sci_scibert for sentence splitting (scispaCy v0.6.2).")
+        except OSError:
+            raise RuntimeError("en_core_sci_scibert is not installed. Run: pip install <scispacy-0.6.2-url>/en_core_sci_scibert-0.6.2.tar.gz")
+
+        # Load PubMedBERT Embeddings — same model as KB preprocessor for vector-space alignment
+        print("Loading neuml/pubmedbert-base-embeddings...")
+        try:
+            self.sentence_model = SentenceTransformer('neuml/pubmedbert-base-embeddings')
+            print("neuml/pubmedbert-base-embeddings loaded successfully!")
+        except Exception as e:
+            print(f"Error loading PubMedBERT: {e}")
+            self.sentence_model = None
         
         # Initialize retriever for knowledge base AFTER models are loaded
         self._init_retriever()
@@ -212,24 +211,35 @@ class ClaimExtractor:
         self._create_optimized_faiss_index()
     
     def _create_optimized_faiss_index(self):
-        """Create FAISS index with optimized batch loading"""
+        """Create FAISS index with optimized batch loading and GPU acceleration"""
         if len(self.kb_embeddings.shape) == 2:
             dim = self.kb_embeddings.shape[1]
-            self.faiss_index = faiss.IndexFlatL2(dim)
-            
+            cpu_index = faiss.IndexFlatL2(dim)
+
             # Add embeddings in batches to avoid memory spikes
             batch_size = 1000
             embeddings_array = np.array(self.kb_embeddings, dtype='float32')
-            
+
             for i in range(0, len(embeddings_array), batch_size):
                 end_idx = min(i + batch_size, len(embeddings_array))
                 batch = embeddings_array[i:end_idx]
-                self.faiss_index.add(batch)
-                
-                if i % (batch_size * 10) == 0:  # Progress every 10K embeddings
+                cpu_index.add(batch)
+
+                if i % (batch_size * 10) == 0:
                     print(f"    FAISS indexing progress: {end_idx}/{len(embeddings_array)}")
-            
-            print("FAISS index created efficiently!")
+
+            # Move to GPU if available
+            try:
+                if faiss.get_num_gpus() > 0:
+                    res = faiss.StandardGpuResources()
+                    self.faiss_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+                    print("FAISS index moved to GPU!")
+                else:
+                    self.faiss_index = cpu_index
+                    print("FAISS index created on CPU (no GPU detected).")
+            except Exception:
+                self.faiss_index = cpu_index
+                print("FAISS GPU transfer failed — using CPU index.")
         else:
             # Fallback for 1D embeddings
             dim = self.kb_embeddings.shape[0]
@@ -385,14 +395,14 @@ class ClaimExtractor:
         return confidence_level, composite_score
     
     def _extract_entities_optimized(self, text: str) -> list:
-        """Optimized entity extraction - used only for claims, not knowledge base"""
+        """Optimized entity extraction using OpenMed NER pipeline"""
         try:
-            if hasattr(self, 'ner_nlp') and self.ner_nlp:
-                doc = self.ner_nlp(text)
-                entities = [ent.text.lower() for ent in doc.ents]
-                return entities
+            if hasattr(self, 'ner_nlp') and self.ner_nlp is not None:
+                results = self.ner_nlp(text)
+                entities = [r['word'].lower() for r in results if len(r['word'].strip()) > 2]
+                return list(set(entities))
             else:
-                # Fast fallback using regex patterns for common medical terms
+                # Fast regex fallback for common medical terms
                 medical_patterns = [
                     r'\b(?:diabetes|cancer|heart|cardiac|stroke|infection|virus|bacteria)\b',
                     r'\b(?:treatment|therapy|medication|drug|surgery|procedure)\b',
@@ -403,7 +413,7 @@ class ClaimExtractor:
                 for pattern in medical_patterns:
                     matches = re.findall(pattern, text_lower)
                     entities.extend(matches)
-                return list(set(entities))  # Remove duplicates
+                return list(set(entities))
         except Exception:
             return []
     
@@ -585,14 +595,10 @@ class ClaimExtractor:
         return penalty
         
     def get_sentence_embedding(self, text: str) -> np.ndarray:
-        """Get sentence embedding using Bio_ClinicalBERT"""
-        if self.tokenizer and self.bert_model:
-            inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
-            with torch.no_grad():
-                outputs = self.bert_model(**inputs)
-                # Use mean pooling of last hidden states
-                embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
-            return embeddings.astype(np.float32)
+        """Get sentence embedding using neuml/pubmedbert-base-embeddings (same space as KB)"""
+        if self.sentence_model is not None:
+            embedding = self.sentence_model.encode(text, convert_to_numpy=True)
+            return embedding.astype(np.float32)
         else:
             # Fallback to simple word count features
             return np.array([len(text.split()), text.count('.'), text.count(',')], dtype=np.float32)

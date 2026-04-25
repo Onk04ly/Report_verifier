@@ -9,9 +9,12 @@ CSV loading) are patched here so that contract tests run without requiring the
 full data pipeline to be initialized.
 """
 
+import os
+import json
 import sys
 import types
 import unittest.mock as mock
+import numpy as np
 import pytest
 
 
@@ -190,3 +193,66 @@ def deterministic_verification_result_list() -> list:
         _make_verification_result("test_summary_001"),
         _make_verification_result("test_summary_002"),
     ]
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 Safety Guardrail Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def seeds_json_path():
+    """Absolute path to the seeds JSON shipped with the repo."""
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'data',
+        'dangerous_guidance_seeds.json'
+    )
+
+
+@pytest.fixture
+def oversized_input():
+    """String strictly longer than the default MAX_SUMMARY_CHARS=5000."""
+    return "The patient has diabetes. " * 400  # ~10,400 chars
+
+
+@pytest.fixture
+def duplicate_heavy_input():
+    """Text whose duplicate-sentence ratio > 0.5."""
+    sentence = "The patient has diabetes."
+    unique = "The patient was admitted yesterday."
+    return (sentence + " ") * 10 + unique  # 10 duplicates + 1 unique = ratio ~0.91
+
+
+@pytest.fixture
+def dangerous_claim_text():
+    """Claim phrased like a seeded dangerous-guidance entry."""
+    return "Patients should stop taking their insulin without medical supervision."
+
+
+@pytest.fixture
+def safe_clinical_text():
+    """Neutral clinical text that must NOT trip the semantic danger check."""
+    return "The patient was counseled on proper insulin administration techniques."
+
+
+@pytest.fixture
+def mock_verifier_no_models():
+    """
+    Build a MedicalVerifier whose extractor has sentence_model=None to
+    exercise the SAFE-03 degraded-mode branch.
+    """
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
+    from medical_verifier import MedicalVerifier
+    from claim_extractor_fixed import ClaimExtractor
+
+    with (
+        mock.patch("claim_extractor_fixed.spacy.load", return_value=mock.MagicMock()),
+        mock.patch("claim_extractor_fixed.hf_pipeline", return_value=mock.MagicMock()),
+        mock.patch("claim_extractor_fixed.SentenceTransformer", return_value=None),
+        mock.patch.object(ClaimExtractor, "_init_retriever", return_value=None),
+    ):
+        verifier = MedicalVerifier()
+        verifier.extractor.sentence_model = None
+        verifier.extractor.danger_centroid = None
+        verifier.extractor._seeds_file_status = 'missing'
+        return verifier

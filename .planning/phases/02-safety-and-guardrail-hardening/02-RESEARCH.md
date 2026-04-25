@@ -587,17 +587,19 @@ def _make_extractor_with_mock_centroid(config, centroid_vec):
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Where does the "no entities detected" warning get set?**
+1. **Where does the "no entities detected" warning get set?** — **RESOLVED** (plan 02-03 Task 4 + plan 02-04 Task 2)
    - What we know: CONTEXT.md says this is "post-NER, inside extractor" — not a pre-validation stop
    - What's unclear: `identify_medical_claims()` already tracks `medical_entities` per claim; but there is no existing path to propagate a "no entities in entire summary" signal back to `input_validation`
    - Recommendation: In `extract_claims_from_summary()`, after `claims = self.identify_medical_claims(sentences)`, check `if not any(c['medical_entities'] for c in claims)` and return a `no_entities_detected` flag alongside the result dict. `verify_single_summary()` then sets `input_validation['warning'] = 'no_entities_detected'` if the flag is present. This avoids adding a new argument to the extractor's public API.
+   - **RESOLVED:** Implemented exactly as recommended. Plan 02-03 Task 4 adds `no_entities` key to the extract_claims_from_summary() return dict (after max-claims truncation). Plan 02-04 Task 2 reads `results.get('no_entities')` post-extraction and sets `input_validation['warning'] = 'no_entities_detected'` when no prior warning is present. Test stub `test_input_validation_warns_no_entities` added in plan 02-01 Task 3 and tracked as row 02-02-05 in 02-VALIDATION.md.
 
-2. **Does the sidecar write belong in export_results() or verify_single_summary()?**
+2. **Does the sidecar write belong in export_results() or verify_single_summary()?** — **RESOLVED** (plan 02-05)
    - What we know: CONTEXT.md says "written alongside every exported result (always, not just on degradation)." The sidecar path is `outputs/<id>_model_status.json`. The existing `_safety_log.json` is written in `export_results()`.
    - What's unclear: `verify_single_summary()` does not know the output path; `export_results()` does. Writing in export_results() means the sidecar only exists after export, not after every verification call.
    - Recommendation: Write in `export_results()` — this matches the existing `_safety_log.json` pattern, keeps output artifacts co-located, and aligns with "alongside every exported result" wording. Verified as the correct interpretation.
+   - **RESOLVED:** Implemented in plan 02-05 (Wave 3) — sidecar written inside `export_results()` per-result, covered by `test_sidecar_written_on_export` and `test_sidecar_seeds_file_status`.
 
 ---
 

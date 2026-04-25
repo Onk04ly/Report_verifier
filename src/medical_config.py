@@ -77,6 +77,15 @@ class ConfigurationSettings:
     MAX_CLAIMS_PER_SUMMARY: int = 50           # Maximum claims per summary
 
     # ------------------------------------------------------------------ #
+    # Phase 2 — Safety and guardrail hardening (SAFE-01, SAFE-02)
+    # Added to centralize runtime input-validation and semantic danger
+    # detection tunables. Read via get_global_config(); never hardcode.
+    # ------------------------------------------------------------------ #
+    DANGEROUS_SEMANTIC_THRESHOLD: float = 0.75  # Cosine similarity cutoff for dangerous-guidance centroid match (SAFE-01)
+    MAX_SUMMARY_CHARS: int = 5000               # Hard truncation limit for input summaries (SAFE-02a)
+    DUPLICATE_SENTENCE_RATIO: float = 0.5       # Fraction of duplicate sentences to flag as repeated_content (SAFE-02a)
+
+    # ------------------------------------------------------------------ #
     # Extractor distance normalization and penalty constants
     # These were previously hardcoded inline in ClaimExtractor; they now
     # live here so all scoring behavior is auditable from one place.
@@ -227,6 +236,11 @@ class ConfigurationSettings:
         _check_positive_int("CONFIDENCE_FACTS_COUNT", self.CONFIDENCE_FACTS_COUNT)
         _check_positive_int("MIN_SENTENCE_LENGTH", self.MIN_SENTENCE_LENGTH)
         _check_positive_int("MAX_CLAIMS_PER_SUMMARY", self.MAX_CLAIMS_PER_SUMMARY)
+
+        # Phase 2 additions
+        _check_probability("DANGEROUS_SEMANTIC_THRESHOLD", self.DANGEROUS_SEMANTIC_THRESHOLD)
+        _check_probability("DUPLICATE_SENTENCE_RATIO", self.DUPLICATE_SENTENCE_RATIO)
+        _check_positive_int("MAX_SUMMARY_CHARS", self.MAX_SUMMARY_CHARS)
 
         # Distance / outlier constants
         _check_positive_float("DISTANCE_NORM_DIVISOR", self.DISTANCE_NORM_DIVISOR)
