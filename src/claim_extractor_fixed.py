@@ -47,6 +47,9 @@ PERFORMANCE BENEFITS:
 import spacy
 import re
 import os
+import json
+import hashlib
+from datetime import datetime
 import pandas as pd
 import faiss
 import torch
@@ -133,6 +136,48 @@ class ClaimExtractor:
             print(f"Error loading PubMedBERT: {e}")
             self.sentence_model = None
         
+        # ------------------------------------------------------------- #
+        # SAFE-01: Load dangerous-guidance seed phrases and compute a
+        # centroid embedding once at init. Used by is_semantically_dangerous().
+        # Missing / corrupt / empty seeds file degrades gracefully:
+        # danger_centroid = None and semantic check is skipped.
+        # ------------------------------------------------------------- #
+        self.danger_centroid = None
+        self._seeds_file_status = 'missing'
+
+        seeds_path = os.path.join(
+            os.path.dirname(__file__), '..', 'data', 'dangerous_guidance_seeds.json'
+        )
+
+        if self.sentence_model is None:
+            print("Warning: sentence_model unavailable — semantic danger check disabled.")
+        elif not os.path.exists(seeds_path):
+            print(f"Warning: {seeds_path} not found — semantic danger check disabled.")
+            self._seeds_file_status = 'missing'
+        else:
+            try:
+                with open(seeds_path, 'r') as f:
+                    seeds_data = json.load(f)
+                all_phrases = [
+                    phrase
+                    for phrases in seeds_data.get('categories', {}).values()
+                    for phrase in phrases
+                ]
+                if not all_phrases:
+                    print("Warning: seeds file has no phrases — semantic check disabled.")
+                    self._seeds_file_status = 'error'
+                else:
+                    seed_embeddings = self.sentence_model.encode(
+                        all_phrases, convert_to_numpy=True
+                    )
+                    self.danger_centroid = seed_embeddings.mean(axis=0).astype(np.float32)
+                    self._seeds_file_status = 'loaded'
+                    print(f"Danger centroid computed from {len(all_phrases)} seed phrases.")
+            except Exception as e:
+                print(f"Warning: Could not load seeds file: {e}")
+                self.danger_centroid = None
+                self._seeds_file_status = 'error'
+
         # Initialize retriever for knowledge base AFTER models are loaded
         self._init_retriever()
     
@@ -164,6 +209,20 @@ class ClaimExtractor:
             
             self.kb = pd.read_csv(preprocessed_path, usecols=available_columns)
             print(f"Loading OPTIMIZED preprocessed KB with {len(self.kb)} facts using {len(available_columns)} columns...")
+
+            # DATA-01/D-02: warn if CSV has drifted from kb_metadata.json record
+            _meta_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'kb_metadata.json')
+            if os.path.exists(_meta_path):
+                try:
+                    with open(_meta_path, 'r', encoding='utf-8') as _fh:
+                        _kb_meta = json.load(_fh)
+                    _recorded_sha = _kb_meta.get('csv_sha256')
+                    if _recorded_sha:
+                        _live_sha = self._compute_sha256(preprocessed_path)
+                        if _live_sha != _recorded_sha:
+                            print("WARNING: KB file hash mismatch — metadata may be stale")
+                except Exception:
+                    pass  # Non-blocking; continue if metadata unreadable
             
             # Use normalized text for better matching
             self.kb_texts = self.kb['normalized_text'].fillna(self.kb['text']).tolist()
@@ -177,7 +236,7 @@ class ClaimExtractor:
                     # Use memory-mapped loading for large files
                     self.kb_embeddings = np.load(embeddings_path, mmap_mode='r')
                     print(f"SciBERT embeddings loaded efficiently! Shape: {self.kb_embeddings.shape}")
-                    self._create_optimized_faiss_index()
+                    self._load_or_build_faiss_index(embeddings_path)
                     return
                 except Exception as e:
                     print(f"Error loading preprocessed SciBERT embeddings: {e}")
@@ -207,9 +266,9 @@ class ClaimExtractor:
         else:
             print("No cached embeddings found. Generating new embeddings...")
             self.kb_embeddings = self._generate_and_cache_embeddings(embeddings_cache_path)
-        
-        self._create_optimized_faiss_index()
-    
+
+        self._load_or_build_faiss_index(embeddings_cache_path)
+
     def _create_optimized_faiss_index(self):
         """Create FAISS index with optimized batch loading and GPU acceleration"""
         if len(self.kb_embeddings.shape) == 2:
@@ -247,6 +306,113 @@ class ClaimExtractor:
             self.faiss_index.add(self.kb_embeddings.astype('float32'))
             print("Knowledge base indexed successfully!")
     
+    # ------------------------------------------------------------------ #
+    # DATA-02: FAISS persistence helpers                                  #
+    # ------------------------------------------------------------------ #
+
+    def _compute_sha256(self, path: str) -> str:
+        """Return SHA-256 hex digest of file at *path*, read in 8 KB chunks."""
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Cannot hash missing file: {path}")
+        h = hashlib.sha256()
+        with open(path, 'rb') as fh:
+            for chunk in iter(lambda: fh.read(8192), b''):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def _save_faiss_artifacts(self, embeddings_sha256: str) -> None:
+        """
+        Persist self.faiss_index to data/faiss_index.bin and write
+        data/faiss_index.meta with embeddings_sha256 and built_at.
+
+        GPU indexes are transferred to CPU before writing.
+        """
+        data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
+        index_path = os.path.join(data_dir, 'faiss_index.bin')
+        meta_path  = os.path.join(data_dir, 'faiss_index.meta')
+
+        try:
+            # Transfer GPU index to CPU for serialization if needed
+            cpu_index = self.faiss_index
+            try:
+                if hasattr(faiss, 'index_gpu_to_cpu'):
+                    cpu_index = faiss.index_gpu_to_cpu(self.faiss_index)
+            except Exception:
+                pass  # Already CPU index — continue
+
+            faiss.write_index(cpu_index, index_path)
+
+            meta = {
+                'embeddings_sha256': embeddings_sha256,
+                'built_at': datetime.utcnow().isoformat() + 'Z',
+            }
+            with open(meta_path, 'w', encoding='utf-8') as fh:
+                json.dump(meta, fh, indent=2)
+
+            print(f"FAISS index saved to: {index_path}")
+            print(f"FAISS meta  saved to: {meta_path}")
+        except Exception as e:
+            print(f"Warning: Could not save FAISS artifacts: {e}")
+
+    def _load_or_build_faiss_index(self, embeddings_path: str) -> None:
+        """
+        Attempt to load a persisted FAISS index from data/faiss_index.bin.
+        Falls back to building (and saving) the index when:
+          - faiss_index.bin or faiss_index.meta is missing
+          - embeddings_sha256 in faiss_index.meta does not match current embeddings
+          - faiss_index.bin is corrupt (faiss.read_index raises)
+
+        After any rebuild, always saves both artifacts (D-07).
+        """
+        data_dir    = os.path.join(os.path.dirname(__file__), '..', 'data')
+        index_path  = os.path.join(data_dir, 'faiss_index.bin')
+        meta_path   = os.path.join(data_dir, 'faiss_index.meta')
+        kb_meta_path = os.path.join(data_dir, 'kb_metadata.json')
+
+        # --- Resolve current embeddings sha256 ---
+        current_sha256 = None
+        if os.path.exists(kb_meta_path):
+            try:
+                with open(kb_meta_path, 'r', encoding='utf-8') as fh:
+                    kb_meta = json.load(fh)
+                current_sha256 = kb_meta.get('embeddings_sha256')
+            except Exception:
+                pass
+
+        if current_sha256 is None:
+            # kb_metadata.json absent or unreadable — compute live
+            try:
+                current_sha256 = self._compute_sha256(embeddings_path)
+            except FileNotFoundError:
+                current_sha256 = None
+
+        # --- Attempt to load persisted index ---
+        needs_rebuild = True
+        if os.path.exists(index_path) and os.path.exists(meta_path):
+            try:
+                with open(meta_path, 'r', encoding='utf-8') as fh:
+                    saved_meta = json.load(fh)
+                saved_sha256 = saved_meta.get('embeddings_sha256')
+
+                if current_sha256 is not None and saved_sha256 == current_sha256:
+                    # Hashes match — attempt to load
+                    loaded_index = faiss.read_index(index_path)
+                    self.faiss_index = loaded_index
+                    print("FAISS index loaded from disk (hash verified).")
+                    needs_rebuild = False
+                else:
+                    print("FAISS index stale or missing — rebuilding from embeddings")
+            except Exception as e:
+                print(f"FAISS index corrupt — rebuilding from embeddings ({e})")
+                needs_rebuild = True
+        else:
+            print("FAISS index stale or missing — rebuilding from embeddings")
+
+        if needs_rebuild:
+            self._create_optimized_faiss_index()
+            if current_sha256:
+                self._save_faiss_artifacts(current_sha256)
+
     def _generate_and_cache_embeddings(self, cache_path):
         """Generate embeddings and save to cache for future use"""
         text_source = self.kb_texts if hasattr(self, 'kb_texts') else self.kb['text'].tolist()
@@ -603,6 +769,30 @@ class ClaimExtractor:
             # Fallback to simple word count features
             return np.array([len(text.split()), text.count('.'), text.count(',')], dtype=np.float32)
     
+    def is_semantically_dangerous(self, claim_text: str) -> bool:
+        """
+        Return True if `claim_text` is semantically close to the dangerous-guidance
+        centroid beyond config.DANGEROUS_SEMANTIC_THRESHOLD. Returns False on any
+        degraded path (missing model, missing seeds, empty centroid).
+
+        SAFE-01 — hybrid with rule-based checks; either positive flags the claim.
+        """
+        if self.sentence_model is None or self.danger_centroid is None:
+            return False
+        try:
+            claim_emb = self.sentence_model.encode(claim_text, convert_to_numpy=True)
+            claim_emb = np.asarray(claim_emb, dtype=np.float32)
+            centroid = np.asarray(self.danger_centroid, dtype=np.float32)
+            norm_c = float(np.linalg.norm(claim_emb))
+            norm_d = float(np.linalg.norm(centroid))
+            if norm_c == 0.0 or norm_d == 0.0:
+                return False
+            similarity = float(np.dot(claim_emb, centroid) / (norm_c * norm_d))
+            return similarity > self.config.DANGEROUS_SEMANTIC_THRESHOLD
+        except Exception as e:
+            print(f"Warning: semantic danger check failed: {e}")
+            return False
+
     def extract_sentences(self, text: str) -> List[str]:
         """Split text into sentences using spaCy"""
         doc = self.nlp(text)
@@ -753,6 +943,12 @@ class ClaimExtractor:
                     'has_uncertainty': has_uncertainty,
                     'certainty_modifier': 'negative' if has_negation else ('uncertain' if has_uncertainty else 'positive'),
                 }
+                # SAFE-01 — hybrid: rule match OR semantic centroid match
+                semantic_match = self.is_semantically_dangerous(claim.get('claim_text', ''))
+                claim['semantic_danger_match'] = bool(semantic_match)
+                claim['is_dangerous'] = bool(claim.get('is_dangerous', False) or semantic_match)
+                claim['rule_danger_match'] = bool(claim.get('is_dangerous', False)) and not bool(semantic_match)
+
                 # Enforce schema contract at the construction point.
                 _validate_claim_schema(claim, context=f"sentence_id={i}")
                 claims.append(claim)
@@ -769,6 +965,21 @@ class ClaimExtractor:
         sentences = self.extract_sentences(medical_summary)
         claims = self.identify_medical_claims(sentences)
 
+        # SAFE-02b — enforce max claims, first-N by document order
+        max_claims = self.config.MAX_CLAIMS_PER_SUMMARY
+        claims_truncated = False
+        claims_truncated_count = 0
+        if len(claims) > max_claims:
+            claims_truncated_count = len(claims) - max_claims
+            claims = claims[:max_claims]
+            claims_truncated = True
+            print(f"Warning: claims truncated to {max_claims} (dropped {claims_truncated_count}).")
+
+        # SAFE-02a check 5 — detect no medical entities across all claims.
+        no_entities = not any(
+            bool(claim.get('medical_entities')) for claim in claims
+        )
+
         # Output boundary: re-validate every claim before returning so that
         # any future code path that bypasses identify_medical_claims cannot
         # accidentally emit malformed claim dicts.
@@ -780,6 +991,9 @@ class ClaimExtractor:
             'sentences': sentences,
             'claims': claims,
             'total_claims': len(claims),
+            'claims_truncated': claims_truncated,
+            'claims_truncated_count': claims_truncated_count,
+            'no_entities': no_entities,
         }
 
 def test_claim_extraction():
