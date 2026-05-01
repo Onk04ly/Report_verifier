@@ -34,10 +34,16 @@ _HEAVY_MODULES = [
     "faiss",
     "torch",
     "transformers",
+    "sentence_transformers",
     "sklearn",
     "sklearn.metrics",
     "sklearn.metrics.pairwise",
 ]
+# "faiss" mock covers faiss.write_index, faiss.read_index, faiss.IndexFlatL2,
+# faiss.get_num_gpus, and faiss.read_index used by the DATA-02 persistence layer.
+# Tests exercising ClaimExtractor._load_or_build_faiss_index() directly should
+# additionally patch os.path.exists and builtins.open for the faiss_index.bin /
+# faiss_index.meta / kb_metadata.json paths.
 
 for _mod in _HEAVY_MODULES:
     _install_module_mock(_mod)
