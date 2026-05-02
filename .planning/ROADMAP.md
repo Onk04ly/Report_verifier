@@ -84,8 +84,8 @@ Success criteria:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — DATA-01: MedicalPreprocessor writes kb_metadata.json (6-field audit record) as final preprocessing step
-- [ ] 04-02-PLAN.md — DATA-02: ClaimExtractor FAISS persistence + hash-based staleness detection + D-02 CSV hash warning
+- [x] 04-01-PLAN.md — DATA-01: MedicalPreprocessor writes kb_metadata.json (6-field audit record) as final preprocessing step (complete 2026-05-02)
+- [x] 04-02-PLAN.md — DATA-02: ClaimExtractor FAISS persistence + hash-based staleness detection + D-02 CSV hash warning (complete 2026-05-02)
 
 **UI hint**: no
 
