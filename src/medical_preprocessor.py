@@ -666,8 +666,6 @@ class MedicalPreprocessor:
                 to_remove.add(idx1)
         
         return to_remove
-        
-        return df_deduplicated.reset_index(drop=True)
     
 
     def preprocess_knowledge_base(self, input_path, output_path):
