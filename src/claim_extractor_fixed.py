@@ -854,14 +854,15 @@ class ClaimExtractor:
         for i, sentence in enumerate(sentences):
             doc = self.nlp(sentence)
             # Use biomedical NER model for entity extraction
-            ner_doc = self.ner_nlp(sentence)
+            # ner_nlp is a HuggingFace pipeline returning List[dict], not a spaCy Doc
+            ner_results = self.ner_nlp(sentence)
             medical_entities = []
-            for ent in ner_doc.ents:
+            for ent in ner_results:
                 medical_entities.append({
-                    'text': ent.text,
-                    'label': ent.label_,
-                    'start': ent.start_char,
-                    'end': ent.end_char
+                    'text': ent['word'],
+                    'label': ent.get('entity_group', 'ENTITY'),
+                    'start': ent.get('start', 0),
+                    'end': ent.get('end', 0),
                 })
             
             # Check if sentence matches medical claim patterns first
