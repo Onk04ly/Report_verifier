@@ -590,7 +590,7 @@ class MedicalPreprocessor:
         
         return df_deduplicated.reset_index(drop=True)
     
-    def _find_duplicates_faiss(self, embeddings, threshold=0.70, k=20):
+    def _find_duplicates_faiss(self, embeddings, threshold=0.87, k=20):
         """Find duplicates using Faiss for efficient top-k similarity search"""
         print(f"      Using Faiss top-k search (k={k}, threshold={threshold})")
         
@@ -616,7 +616,7 @@ class MedicalPreprocessor:
         print(f"         Found {len(duplicates)} duplicate pairs")
         return duplicates
     
-    def _find_duplicates_batch(self, embeddings, threshold=0.70, batch_size=500):
+    def _find_duplicates_batch(self, embeddings, threshold=0.87, batch_size=500):
         """Find duplicates using batched processing (fallback when Faiss unavailable)"""
         print(f"      Using batched similarity search (batch_size={batch_size}, threshold={threshold})")
         
