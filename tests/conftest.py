@@ -82,8 +82,8 @@ def _make_valid_claim(**overrides) -> dict:
 def _make_invalid_claim_missing_claim_text() -> dict:
     """Return a claim that uses the legacy 'text' key instead of 'claim_text'."""
     claim = _make_valid_claim()
-    del claim["claim_text"]
-    claim["text"] = claim.get("claim_text", "some legacy text")
+    original_text = claim.pop("claim_text")
+    claim["text"] = original_text
     return claim
 
 
