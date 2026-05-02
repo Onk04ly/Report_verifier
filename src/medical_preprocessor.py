@@ -436,7 +436,7 @@ class MedicalPreprocessor:
         
         # Recency bonus (newer research gets higher score)
         if publication_year and not pd.isna(publication_year):
-            current_year = 2025  # Current year
+            current_year = datetime.today().year
             years_old = current_year - publication_year
             
             if years_old <= 2:
