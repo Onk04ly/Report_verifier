@@ -688,7 +688,14 @@ class MedicalPreprocessor:
         df['year'] = df['year'].fillna('').astype(str)
         df['publication_year'] = pd.to_numeric(df['year'], errors='coerce')
         
-        print(f"   Year range: {df['publication_year'].min():.0f} - {df['publication_year'].max():.0f}")
+        yr_min = df['publication_year'].min()
+        yr_max = df['publication_year'].max()
+        yr_range = (
+            f"{yr_min:.0f} - {yr_max:.0f}"
+            if pd.notna(yr_min) and pd.notna(yr_max)
+            else "unknown"
+        )
+        print(f"   Year range: {yr_range}")
         
         # Step 1: Text normalization
         print("\n Normalizing text...")
