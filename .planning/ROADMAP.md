@@ -101,6 +101,14 @@ Success criteria:
 3. Evaluation reports precision and accuracy per selected disease against baseline.
 4. Broad multi-disease expansion remains gated until specialist metrics meet target thresholds.
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — FOCUS-01: Disease config block in medical_config.py + DiseaseKBBuckets centroid computation and KB article assignment
+- [ ] 05-02-PLAN.md — FOCUS-02: Disease-filtered FAISS retrieval in ClaimExtractor + disease-specific Layer 1 rule patterns in MedicalVerifier
+- [ ] 05-03-PLAN.md — FOCUS-01/FOCUS-03: Per-disease dataset splits (20/60/20 stratified) + DiseaseEvaluator with per-disease precision/accuracy report
+- [ ] 05-04-PLAN.md — FOCUS-01/FOCUS-03: ExpansionGate with persistent run counter, consecutive-pass streak, baseline snapshot capture
+
 **UI hint**: no
 
 ## Phase 6: Documentation Alignment
@@ -121,4 +129,4 @@ Success criteria:
 Broad scaling to many diseases is intentionally deferred. Expansion starts only after specialist metrics from Phase 5 are validated.
 
 ---
-*Last updated: 2026-04-30 after phase 4 planning*
+*Last updated: 2026-05-02 after phase 5 planning*
