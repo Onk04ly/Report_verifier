@@ -904,18 +904,16 @@ class ClaimExtractor:
             if is_claim:
                 supporting_facts = self.retrieve_supporting_facts(sentence, top_k=5)
             
-            # Use preprocessed negation/uncertainty data if available from supporting facts
-            # Otherwise do quick detection
-            has_negation = any(fact.get('has_negation', False) for fact in supporting_facts[:3]) if supporting_facts else False
-            has_uncertainty = any(fact.get('has_uncertainty', False) for fact in supporting_facts[:3]) if supporting_facts else False
-            
-            # Quick fallback negation detection if preprocessed data unavailable
-            if not supporting_facts or not any('has_negation' in fact for fact in supporting_facts):
-                text_lower = sentence.lower()
-                negation_words = ['not', 'no', 'never', 'none', 'without', 'absent', 'lacks', 'denies']
-                uncertainty_words = ['maybe', 'perhaps', 'possibly', 'might', 'may', 'could', 'suspicious', 'suggestive']
-                has_negation = any(word in text_lower for word in negation_words)
-                has_uncertainty = any(word in text_lower for word in uncertainty_words)
+            # Always scan the claim sentence itself for negation/uncertainty, then combine
+            # with any signal from the retrieved KB supporting facts.  Reading only the KB
+            # facts (as the prior code did) caused the claim's own negation to be missed.
+            text_lower = sentence.lower()
+            negation_words = ['not', 'no', 'never', 'none', 'without', 'absent', 'lacks', 'denies']
+            uncertainty_words = ['maybe', 'perhaps', 'possibly', 'might', 'may', 'could', 'suspicious', 'suggestive']
+            claim_has_negation = any(word in text_lower for word in negation_words)
+            claim_has_uncertainty = any(word in text_lower for word in uncertainty_words)
+            has_negation = claim_has_negation or any(fact.get('has_negation', False) for fact in supporting_facts[:3])
+            has_uncertainty = claim_has_uncertainty or any(fact.get('has_uncertainty', False) for fact in supporting_facts[:3])
             
             if is_claim:
                 # Supporting facts already retrieved above for negation/uncertainty detection
