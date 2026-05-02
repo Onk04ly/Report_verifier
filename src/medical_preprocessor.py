@@ -805,14 +805,11 @@ class MedicalPreprocessor:
 
         Returns the path written.
         """
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(
-                f"KB CSV artifact not found — cannot write metadata: {csv_path}"
-            )
-        # Embeddings file is written by claim_extractor_fixed.py (a later pipeline stage).
-        # On a fresh preprocessor run the file does not yet exist; skip its hash rather than
-        # blocking the entire metadata write.
-        embeddings_present = os.path.exists(embeddings_path)
+        for artifact in (csv_path, embeddings_path):
+            if not os.path.exists(artifact):
+                raise FileNotFoundError(
+                    f"KB artifact not found — cannot write metadata: {artifact}"
+                )
 
         def _sha256_file(path: str) -> str:
             h = hashlib.sha256()
@@ -839,7 +836,7 @@ class MedicalPreprocessor:
             'embedding_model': embedding_model,
             'row_count': int(len(final_df)),
             'csv_sha256': _sha256_file(csv_path),
-            'embeddings_sha256': _sha256_file(embeddings_path) if embeddings_present else None,
+            'embeddings_sha256': _sha256_file(embeddings_path),
             'pubmed_queries': pubmed_queries,
         }
 
