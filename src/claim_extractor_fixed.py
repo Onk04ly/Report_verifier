@@ -945,10 +945,11 @@ class ClaimExtractor:
                     'certainty_modifier': 'negative' if has_negation else ('uncertain' if has_uncertainty else 'positive'),
                 }
                 # SAFE-01 — hybrid: rule match OR semantic centroid match
+                rule_fired = bool(claim.get('is_dangerous', False))
                 semantic_match = self.is_semantically_dangerous(claim.get('claim_text', ''))
                 claim['semantic_danger_match'] = bool(semantic_match)
-                claim['is_dangerous'] = bool(claim.get('is_dangerous', False) or semantic_match)
-                claim['rule_danger_match'] = bool(claim.get('is_dangerous', False)) and not bool(semantic_match)
+                claim['is_dangerous'] = bool(rule_fired or semantic_match)
+                claim['rule_danger_match'] = rule_fired
 
                 # Enforce schema contract at the construction point.
                 _validate_claim_schema(claim, context=f"sentence_id={i}")
