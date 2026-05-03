@@ -449,14 +449,52 @@ class ClaimExtractor:
             except Exception as e:
                 print(f"Warning: Could not save SciBERT embeddings: {e}")
 
-    def retrieve_supporting_facts(self, claim_text, top_k=None):
-        """Retrieve top-k supporting facts for a given claim"""
+    def retrieve_supporting_facts(self, claim_text, top_k=None, disease_bucket_indices=None):
+        """Retrieve top-k supporting facts for a given claim.
+
+        Args:
+            claim_text: The claim text to retrieve supporting facts for.
+            top_k: Number of facts to retrieve. Defaults to config.TOP_K_FACTS.
+            disease_bucket_indices: Optional list of KB row indices belonging to the
+                target disease bucket (per D-04). When provided, only facts whose KB
+                row index is in this set are returned. Falls back to unfiltered results
+                if filtering would leave zero facts.
+        """
         if top_k is None:
             top_k = self.config.TOP_K_FACTS
+
+        # Retrieve more candidates when disease filtering is active so that
+        # post-filter result count is unlikely to be zero.
+        search_k = top_k * 4 if disease_bucket_indices is not None else top_k
         claim_emb = self.get_sentence_embedding(claim_text)
-        D, I = self.faiss_index.search(np.expand_dims(claim_emb, axis=0), top_k)
-        results = self.kb.iloc[I[0]].copy()
-        results['distance'] = D[0]
+        D, I = self.faiss_index.search(np.expand_dims(claim_emb, axis=0), search_k)
+
+        indices = I[0]
+        distances = D[0]
+
+        if disease_bucket_indices is not None:
+            bucket_set = set(disease_bucket_indices)
+            mask = np.array([idx in bucket_set for idx in indices])
+            filtered_indices = indices[mask]
+            filtered_distances = distances[mask]
+
+            if len(filtered_indices) == 0:
+                # Fallback: no bucket match — use unfiltered top_k results
+                filtered_indices = indices[:top_k]
+                filtered_distances = distances[:top_k]
+            else:
+                filtered_indices = filtered_indices[:top_k]
+                filtered_distances = filtered_distances[:top_k]
+
+            indices = filtered_indices
+            distances = filtered_distances
+
+        else:
+            indices = indices[:top_k]
+            distances = distances[:top_k]
+
+        results = self.kb.iloc[indices].copy()
+        results['distance'] = distances
         return results.to_dict(orient='records')
     
     def calculate_confidence_score(self, claim_text, supporting_facts):
