@@ -85,27 +85,35 @@ class MedicalVerifier:
         summaries_data = df.to_dict('records')
         return self.verify_multiple_summaries(summaries_data)
     
-    def _detect_medical_implausibility(self, claim_text):
+    def _detect_medical_implausibility(self, claim_text, disease=None):
         """Advanced semantic analysis for medical implausibility without keyword dependency"""
-        
+
         # SEMANTIC ANALYSIS: Check for logical medical impossibilities
         semantic_issues = []
         claim_lower = claim_text.lower()
-        
+
+        # Store for use by _get_disease_patterns() without re-lowercasing
+        self._current_claim_lower = claim_lower
+
         # 1. Impossibility Detection: Medical claims that violate known biology
         impossibility_indicators = self._analyze_medical_impossibilities(claim_text)
-        
+
         # 2. Risk Analysis: Claims that could endanger patient safety
         safety_risks = self._analyze_patient_safety_risks(claim_text)
-        
+
         # 3. Evidence Contradiction: Claims that contradict established medicine
         evidence_conflicts = self._analyze_evidence_contradictions(claim_text)
-        
+
         # 4. Logical Consistency: Claims that are internally contradictory
         logical_issues = self._analyze_logical_consistency(claim_text)
-        
+
+        # D-04: Append disease-specific Layer 1 patterns when a target disease is active
+        disease_issues = []
+        if disease is not None and disease in self.global_config.DISEASE_LIST:
+            disease_issues = self._get_disease_patterns(disease)
+
         # Combine all analyses with proper severity assessment
-        all_issues = impossibility_indicators + safety_risks + evidence_conflicts + logical_issues
+        all_issues = impossibility_indicators + safety_risks + evidence_conflicts + logical_issues + disease_issues
         
         # Enhanced severity assessment based on multiple factors
         for issue in all_issues:
@@ -219,6 +227,86 @@ class MedicalVerifier:
             })
             
         return inconsistencies
+
+    def _get_disease_patterns(self, disease_slug: str) -> list:
+        """Return Layer 1 issue dicts for disease-specific physiological impossibilities
+        and treatment contradictions per D-04 (FOCUS-02).
+
+        All patterns are applied at the claim level. Returned issue dicts follow the
+        same schema as _analyze_medical_impossibilities() so they can be merged into
+        all_issues without transformation.
+
+        Returns [] for unknown disease slugs (defensive — no exception).
+        """
+        issues = []
+        # re is imported at module level via _check_evidence_based_validity
+        import re
+
+        claim_lower = self._current_claim_lower  # set by caller before this method is invoked
+
+        if disease_slug == "type1_diabetes":
+            # (a) Beta cell regeneration impossibility
+            if (re.search(r'type\s*1', claim_lower) and 'diabet' in claim_lower and
+                    re.search(r'regenerate|restore|cure', claim_lower) and 'type 2' not in claim_lower):
+                issues.append({
+                    'type': 'disease_specific_impossibility',
+                    'severity': 'CRITICAL',
+                    'reason': 'T1D beta cells cannot regenerate — claiming cure/restoration is physiologically impossible',
+                    'medical_domain': 'endocrinology',
+                })
+            # (b) Insulin independence contradiction
+            if (re.search(r'type\s*1', claim_lower) and 'diabet' in claim_lower and
+                    re.search(r'no insulin|without insulin|insulin.{0,10}free', claim_lower)):
+                issues.append({
+                    'type': 'disease_specific_contradiction',
+                    'severity': 'CRITICAL',
+                    'reason': 'Type 1 diabetes requires lifelong insulin — insulin independence claim contradicts established evidence',
+                    'medical_domain': 'endocrinology',
+                })
+            # (c) Universal fixed dose impossibility
+            if ('type 1' in claim_lower and 'insulin' in claim_lower and
+                    re.search(r'same dose|fixed dose|universal dose', claim_lower)):
+                issues.append({
+                    'type': 'disease_specific_impossibility',
+                    'severity': 'HIGH',
+                    'reason': 'Insulin dosing for T1D is individualized — a universal fixed dose is physiologically incorrect',
+                    'medical_domain': 'endocrinology',
+                })
+
+        elif disease_slug == "metastatic_cancer":
+            # (a) Stage 4 / metastatic cure claim
+            if (re.search(r'metastatic|stage\s*4|stage\s*iv', claim_lower) and
+                    'cancer' in claim_lower and
+                    re.search(r'completely cured|total cure|eradicated|eliminated', claim_lower) and
+                    'remission' not in claim_lower):
+                issues.append({
+                    'type': 'disease_specific_contradiction',
+                    'severity': 'HIGH',
+                    'reason': 'Complete cure claims for metastatic cancer contradict evidence-based oncology outcomes',
+                    'medical_domain': 'oncology',
+                })
+            # (b) Chemo avoidance leading to cure
+            if ('metastatic' in claim_lower and 'cancer' in claim_lower and
+                    re.search(r'no chemotherapy|without chemotherapy|chemo.{0,10}free', claim_lower) and
+                    re.search(r'cured|treated|resolved', claim_lower)):
+                issues.append({
+                    'type': 'disease_specific_contradiction',
+                    'severity': 'HIGH',
+                    'reason': 'Metastatic cancer treated without chemotherapy/medical intervention contradicts standard oncology protocols',
+                    'medical_domain': 'oncology',
+                })
+            # (c) Metastasis reversal via alternative means
+            if (re.search(r'metastatic|metastasis', claim_lower) and
+                    re.search(r'reversed|undone|disappeared', claim_lower) and
+                    re.search(r'diet|supplements|herbs|prayer|natural', claim_lower)):
+                issues.append({
+                    'type': 'disease_specific_impossibility',
+                    'severity': 'CRITICAL',
+                    'reason': 'Metastasis reversal via diet/supplements/natural remedies is not supported by evidence',
+                    'medical_domain': 'oncology',
+                })
+
+        return issues
 
     def _check_evidence_based_validity(self, claim_text, verification_result):
         """Check if claim contradicts established medical evidence with  clinical knowledge"""
