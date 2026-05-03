@@ -61,7 +61,67 @@ class MedicalVerifier:
         results = self._apply_responsible_ai_layer(results, medical_summary)
         
         return results
-    
+
+    def verify_for_disease(self, text: str, disease: str, buckets, summary_id: str = None) -> dict:
+        """Verify a text with disease-scoped retrieval AND disease-specific Layer 1 rule patterns.
+
+        D-04 hybrid path: BOTH halves fire together inside this method:
+          - Retrieval half: retrieve_supporting_facts is monkey-patched to pass
+            disease_bucket_indices so FAISS results are filtered to the disease KB bucket.
+          - Rules half: _detect_medical_implausibility is monkey-patched so every internal
+            call receives disease=disease_slug, causing _get_disease_patterns() to fire.
+        Neither half executes alone — D-04 requires both components applied together.
+
+        Args:
+            text: The document text to verify.
+            disease: Disease slug (must match DISEASE_LIST values in medical_config.py).
+                     # Slugs must match DISEASE_LIST values in medical_config.py
+            buckets: DiseaseKBBuckets instance (from disease_buckets.py Plan 01).
+            summary_id: Optional identifier for the result dict.
+
+        Returns:
+            Same dict structure as verify_single_summary() — risk_assessment.level,
+            claims list, responsible_ai block. Also includes disease_scope key.
+
+        Raises:
+            ValueError: if disease is not found in buckets.article_indices.
+        """
+        if disease not in buckets.article_indices:
+            raise ValueError(
+                f"Disease '{disease}' not found in buckets.article_indices. "
+                f"Available: {list(buckets.article_indices.keys())}"
+            )
+
+        bucket_indices = buckets.article_indices[disease]
+        disease_slug = disease  # alias for clarity in closures below
+
+        # --- Retrieval half (D-04): monkey-patch retrieve_supporting_facts ---
+        original_retrieve = self.extractor.retrieve_supporting_facts
+
+        def _disease_filtered_retrieve(claim_text, top_k=None):
+            return original_retrieve(
+                claim_text, top_k=top_k, disease_bucket_indices=bucket_indices
+            )
+
+        # --- Rules half (D-04): monkey-patch _detect_medical_implausibility ---
+        _orig_implausibility = self._detect_medical_implausibility
+
+        def _patched_implausibility(claim_text, disease=None):
+            return _orig_implausibility(claim_text, disease=disease_slug)
+
+        self.extractor.retrieve_supporting_facts = _disease_filtered_retrieve
+        self._detect_medical_implausibility = _patched_implausibility
+        try:
+            result = self.verify_single_summary(text, summary_id=summary_id or f"{disease}_eval")
+        finally:
+            # Always restore both original methods, even if verification raises
+            self.extractor.retrieve_supporting_facts = original_retrieve
+            self._detect_medical_implausibility = _orig_implausibility
+
+        # Inject disease context into the result so callers can audit which path was used
+        result['disease_scope'] = disease
+        return result
+
     def verify_multiple_summaries(self, summaries_data: List[Dict]) -> List[Dict]:
         """Verify multiple medical summaries"""
         all_results = []
