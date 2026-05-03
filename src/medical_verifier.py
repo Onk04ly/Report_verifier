@@ -136,7 +136,17 @@ class MedicalVerifier:
             
             result = self.verify_single_summary(summary_text, summary_id)
             all_results.append(result)
-        
+
+        # Phase 5 D-06: record this pipeline run in the expansion gate counter
+        try:
+            from expansion_gate import ExpansionGate, GateFailError, GatePassPendingApprovalError  # noqa: PLC0415
+            ExpansionGate().record_run()
+        except (GateFailError, GatePassPendingApprovalError):
+            # Re-raise gate signals so the caller can handle them
+            raise
+        except Exception:
+            pass  # Non-blocking — gate state errors must not abort verification
+
         return all_results
     
     def verify_from_csv(self, csv_path: str) -> List[Dict]:
