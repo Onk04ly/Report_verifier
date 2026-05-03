@@ -153,6 +153,23 @@ class ConfigurationSettings:
     UNCERTAINTY_CONFIDENCE_PENALTY: float = 0.6  # Multiplier applied when has_uncertainty
 
     # ------------------------------------------------------------------ #
+    # Phase 5 — Disease Scope Specialization (FOCUS-01, D-01 to D-06)
+    # Disease set is locked to these two slugs. Add new diseases only after
+    # expansion gate passes (see EXPANSION_GATE_N, EXPANSION_GATE_CONSECUTIVE).
+    # ------------------------------------------------------------------ #
+    DISEASE_LIST: list = field(default_factory=lambda: ["type1_diabetes", "metastatic_cancer"])
+    DISEASE_CENTROID_SIM_THRESHOLD: float = 0.60   # Min cosine sim for KB bucket assignment (D-04)
+    DISEASE_CENTROID_TOP_K: int = 20               # Top-K quality articles for centroid (D-04)
+    EXPANSION_GATE_N: int = 5                      # Evaluate gate every N pipeline runs (D-06)
+    EXPANSION_GATE_CONSECUTIVE: int = 2            # Consecutive passing runs required (D-03/D-06)
+    DISEASE_RANDOM_SEED: int = 42                  # Fixed seed for dataset splits (D-05)
+    DISEASE_PRECISION_TARGET: float = 0.65         # Per-disease precision target (D-03)
+    DISEASE_ACCURACY_TARGET: float = 0.60          # Per-disease accuracy target (D-03)
+    HOLDOUT_FRACTION: float = 0.20                 # 20% holdout per D-05
+    TUNE_FRACTION: float = 0.20                    # 20% tune set per D-05
+    TRAIN_FRACTION: float = 0.60                   # 60% train set per D-05
+
+    # ------------------------------------------------------------------ #
     # __post_init__ validation
     # ------------------------------------------------------------------ #
     def __post_init__(self) -> None:
@@ -280,6 +297,26 @@ class ConfigurationSettings:
         _check_probability("NEGATION_CONFIDENCE_PENALTY", self.NEGATION_CONFIDENCE_PENALTY)
         _check_probability("UNCERTAINTY_CONFIDENCE_PENALTY", self.UNCERTAINTY_CONFIDENCE_PENALTY)
 
+        # Phase 5 disease config
+        if not isinstance(self.DISEASE_LIST, list) or len(self.DISEASE_LIST) < 1:
+            errors.append("DISEASE_LIST must be a non-empty list")
+        _check_probability("DISEASE_CENTROID_SIM_THRESHOLD", self.DISEASE_CENTROID_SIM_THRESHOLD)
+        _check_positive_int("DISEASE_CENTROID_TOP_K", self.DISEASE_CENTROID_TOP_K)
+        _check_positive_int("EXPANSION_GATE_N", self.EXPANSION_GATE_N)
+        _check_positive_int("EXPANSION_GATE_CONSECUTIVE", self.EXPANSION_GATE_CONSECUTIVE)
+        if not isinstance(self.DISEASE_RANDOM_SEED, int):
+            errors.append("DISEASE_RANDOM_SEED must be an integer")
+        _check_probability("DISEASE_PRECISION_TARGET", self.DISEASE_PRECISION_TARGET)
+        _check_probability("DISEASE_ACCURACY_TARGET", self.DISEASE_ACCURACY_TARGET)
+        _check_probability("HOLDOUT_FRACTION", self.HOLDOUT_FRACTION)
+        _check_probability("TUNE_FRACTION", self.TUNE_FRACTION)
+        _check_probability("TRAIN_FRACTION", self.TRAIN_FRACTION)
+        split_sum = self.HOLDOUT_FRACTION + self.TUNE_FRACTION + self.TRAIN_FRACTION
+        if abs(split_sum - 1.0) > 1e-6:
+            errors.append(
+                f"HOLDOUT_FRACTION + TUNE_FRACTION + TRAIN_FRACTION must sum to 1.0 (got {split_sum:.6f})"
+            )
+
         if errors:
             joined = "\n  ".join(errors)
             raise ValueError(
@@ -331,6 +368,22 @@ class ConfigurationSettings:
             'confidence_facts_count': self.CONFIDENCE_FACTS_COUNT,
             'min_sentence_length': self.MIN_SENTENCE_LENGTH,
             'max_claims_per_summary': self.MAX_CLAIMS_PER_SUMMARY,
+        }
+
+    def get_disease_config(self) -> Dict[str, Any]:
+        """Return Phase 5 disease specialization config as a dictionary."""
+        return {
+            'disease_list': self.DISEASE_LIST,
+            'centroid_sim_threshold': self.DISEASE_CENTROID_SIM_THRESHOLD,
+            'centroid_top_k': self.DISEASE_CENTROID_TOP_K,
+            'expansion_gate_n': self.EXPANSION_GATE_N,
+            'expansion_gate_consecutive': self.EXPANSION_GATE_CONSECUTIVE,
+            'random_seed': self.DISEASE_RANDOM_SEED,
+            'precision_target': self.DISEASE_PRECISION_TARGET,
+            'accuracy_target': self.DISEASE_ACCURACY_TARGET,
+            'holdout_fraction': self.HOLDOUT_FRACTION,
+            'tune_fraction': self.TUNE_FRACTION,
+            'train_fraction': self.TRAIN_FRACTION,
         }
 
     def get_outlier_params(self) -> Dict[str, float]:
