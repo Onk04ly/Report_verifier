@@ -18,16 +18,11 @@ Potentially unsafe or implausible medical claims are identified with high precis
 
 ### Active
 
-- [ ] Unify runtime configuration so all thresholds and retrieval parameters are sourced from `src/medical_config.py`
-- [ ] Enforce a stable claim schema contract between extractor and verifier
-- [ ] Narrow verification scope to 2-3 selected diseases and optimize hallucination detection quality for those diseases
-- [ ] Add robust safety detection beyond brittle exact keyword matching
-- [ ] Add input validation and enforce max-claims/length guards during verification
-- [ ] Add explicit degraded-mode signaling/failure behavior when core embedding models are unavailable
-- [ ] Add formal automated tests for risk layer boundaries, safety detection, and confidence scoring
-- [ ] Add reproducibility metadata for KB/embedding artifacts
-- [ ] Persist and reuse FAISS index to reduce cold-start overhead
-- [ ] Align top-level docs with real implemented APIs, thresholds, and workflow behavior
+*(No active requirements — all v1.0 requirements validated)*
+
+### Validated in Phase 6 (Documentation Alignment)
+
+- ✓ Align top-level docs with real implemented APIs, thresholds, and workflow behavior (DOCS-01)
 
 ### Out of Scope
 
@@ -76,5 +71,5 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-12 after scope strategy update (2-3 disease specialization)*
+*Last updated: 2026-05-04 after Phase 6 complete — all v1.0 requirements validated*
 
