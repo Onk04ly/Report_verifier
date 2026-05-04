@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06
-status: Phase 6 planned — ready to execute
-stopped_at: Phase 6 planning complete (3 plans, 1 wave)
+status: Phase 6 complete — all 6 phases done, v1.0 milestone complete
+stopped_at: Phase 6 verification passed (3/3 plans, 32/32 must-haves)
 last_updated: "2026-05-04T00:00:00.000Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 19
-  completed_plans: 12
-  percent: 83
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -41,7 +41,7 @@ See: `.planning/PROJECT.md` (updated 2026-04-11)
 | Phase 3 (Regression Safety Net) | Complete |
 | Phase 4 (Reproducibility and Runtime Ops) | Complete |
 | Phase 5 (Disease Scope Specialization) | Complete |
-| Phase 6 (Documentation Alignment) | Planned ✓ |
+| Phase 6 (Documentation Alignment) | Complete ✓ |
 
 ## Phase 5 Completion
 
@@ -59,15 +59,26 @@ See: `.planning/PROJECT.md` (updated 2026-04-11)
 - `data/disease_centroids.npz`, `data/disease_splits.json` — persistent artifacts
 - `tests/` — 74 new tests (48 Plan 02 + 26 Plan 04); all passing
 
+## Phase 6 Completion
+
+**Plans completed:** 3/3
+**Verification:** 32/32 must-haves passed; DOCS-01 satisfied
+**Requirements satisfied:** DOCS-01
+
+### What was built
+- `workflow.txt` — Rewritten from garbled 123-line conda-prefixed document to clean 6-phase execution guide
+- `README.md` — Written from scratch as project entry point with accurate overview, setup, phase commands, and config reference (correct class name, thresholds, import pattern)
+- `IMPLEMENTATION_SUMMARY.md` — Rewritten as accurate merged reference: 8 real accessor methods, correct thresholds (0.30/0.22), no fabricated APIs
+- Deleted: `SETUP_GUIDE.md`, `CONFIG_INTEGRATION_GUIDE.md` (content absorbed)
+
 ## Next Command
 
-`/gsd-execute-phase 6`
+All 6 phases complete — v1.0 milestone done.
 
 ## Session
 
-- **Stopped at:** Phase 5 complete
-- **Resume file:** .planning/phases/06-documentation-alignment/
-- **Updated:** 2026-05-03
+- **Stopped at:** Phase 6 complete (all phases done)
+- **Updated:** 2026-05-04
 
 ---
-*Last updated: 2026-05-03 after phase 5 complete*
+*Last updated: 2026-05-04 after phase 6 complete — all phases done*

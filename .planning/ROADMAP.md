@@ -125,9 +125,9 @@ Success criteria:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — DOCS-01: Rewrite workflow.txt — accurate 6-phase structure with python src/ commands
-- [ ] 06-02-PLAN.md — DOCS-01: Write README.md from scratch (absorb + delete SETUP_GUIDE.md)
-- [ ] 06-03-PLAN.md — DOCS-01: Rewrite IMPLEMENTATION_SUMMARY.md as merged accurate reference (absorb + delete CONFIG_INTEGRATION_GUIDE.md)
+- [x] 06-01-PLAN.md — DOCS-01: Rewrite workflow.txt — accurate 6-phase structure with python src/ commands (complete 2026-05-04)
+- [x] 06-02-PLAN.md — DOCS-01: Write README.md from scratch (absorb + delete SETUP_GUIDE.md) (complete 2026-05-04)
+- [x] 06-03-PLAN.md — DOCS-01: Rewrite IMPLEMENTATION_SUMMARY.md as merged accurate reference (absorb + delete CONFIG_INTEGRATION_GUIDE.md) (complete 2026-05-04)
 
 **UI hint**: no
 
@@ -136,4 +136,4 @@ Plans:
 Broad scaling to many diseases is intentionally deferred. Expansion starts only after specialist metrics from Phase 5 are validated.
 
 ---
-*Last updated: 2026-05-03 after phase 6 planned*
+*Last updated: 2026-05-04 after phase 6 complete*
