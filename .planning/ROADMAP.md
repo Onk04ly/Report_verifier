@@ -122,6 +122,13 @@ Success criteria:
 2. Deprecated or misleading references are removed or clearly labeled.
 3. README/project guidance points to the current `.planning` artifacts and workflow entrypoints.
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — DOCS-01: Rewrite workflow.txt — accurate 6-phase structure with python src/ commands
+- [ ] 06-02-PLAN.md — DOCS-01: Write README.md from scratch (absorb + delete SETUP_GUIDE.md)
+- [ ] 06-03-PLAN.md — DOCS-01: Rewrite IMPLEMENTATION_SUMMARY.md as merged accurate reference (absorb + delete CONFIG_INTEGRATION_GUIDE.md)
+
 **UI hint**: no
 
 ## Post-v1 Expansion Gate
@@ -129,4 +136,4 @@ Success criteria:
 Broad scaling to many diseases is intentionally deferred. Expansion starts only after specialist metrics from Phase 5 are validated.
 
 ---
-*Last updated: 2026-05-03 after phase 5 complete*
+*Last updated: 2026-05-03 after phase 6 planned*
