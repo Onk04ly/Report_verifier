@@ -1,0 +1,92 @@
+# ========================================
+# Medical Verification System - Requirements
+# ========================================
+# 
+# This requirements file specifies all dependencies for the medical 
+# verification and hallucination detection system developed for 
+# academic research purposes.
+#
+# Installation: pip install -r requirements.txt
+# Python Version: 3.8+
+# ========================================
+
+# Core Data Science Libraries
+# ----------------------------------------
+pandas>=1.5.0                    # Data manipulation and analysis
+numpy>=1.21.0                    # Numerical computing foundation
+scipy>=1.9.0                     # Scientific computing and statistics
+scikit-learn>=1.1.0              # Machine learning algorithms and metrics
+
+# Natural Language Processing
+# ----------------------------------------
+spacy>=3.7.0                     # Advanced NLP and linguistic features (compatible with scispaCy 0.6.x)
+scispacy>=0.6.0                  # Scientific and medical text processing (v0.6.2 required)
+transformers>=4.35.0             # Transformer models (OpenMed NER, PubMedBERT)
+sentence-transformers>=2.2.0     # neuml/pubmedbert-base-embeddings, S-PubMedBert-MS-MARCO
+torch>=2.0.0                     # Deep learning framework
+
+# Vector Search and Similarity
+# ----------------------------------------
+# faiss-gpu was removed from PyPI after v1.7.2 (binary exceeded PyPI 60 MB limit).
+# Windows local dev: use faiss-cpu (pip install faiss-cpu)
+# Google Colab / Linux GPU: use faiss-gpu-cu12 or faiss-gpu-cu11
+#   pip install faiss-gpu-cu12          # CUDA 12.x  (driver >= R530)
+#   pip install faiss-gpu-cu11          # CUDA 11.8  (driver >= R520)
+# Conda (Linux only): conda install -c pytorch -c nvidia -c conda-forge faiss-gpu
+faiss-cpu>=1.7.4                 # CPU fallback — works on all platforms via pip
+
+# Data Visualization
+# ----------------------------------------
+matplotlib>=3.6.0                # Static plotting and visualization
+seaborn>=0.11.0                  # Statistical data visualization
+plotly>=5.10.0                   # Interactive plots and dashboards
+streamlit>=1.35.0               # Web UI for interactive verification dashboard
+
+# Jupyter Notebook Environment
+# ----------------------------------------
+ipython>=8.5.0                   # Enhanced interactive Python shell
+jupyter>=1.0.0                   # Jupyter notebook environment
+notebook>=6.4.0                  # Jupyter notebook server
+
+# Web Requests and Data Fetching
+# ----------------------------------------
+requests>=2.28.0                 # HTTP library for PubMed API calls
+
+# Development and Utility
+# ----------------------------------------
+pathlib                          # Object-oriented filesystem paths (built-in)
+json                              # JSON data handling (built-in)
+re                                # Regular expressions (built-in)
+os                                # Operating system interface (built-in)
+sys                               # System-specific parameters (built-in)
+warnings                          # Warning control (built-in)
+datetime                          # Date and time handling (built-in)
+time                              # Time access and conversions (built-in)
+typing                            # Type hints (built-in)
+dataclasses                       # Data classes (built-in)
+collections                       # Specialized container datatypes (built-in)
+
+# ========================================
+# SpaCy / scispaCy Models (install separately — scispaCy v0.6.2)
+# ========================================
+# Sentence splitting (SciBERT-backed pipeline):
+# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.6.2/en_core_sci_scibert-0.6.2.tar.gz
+#
+# Biomedical NER (HuggingFace — loaded via transformers pipeline, no pip install needed):
+# OpenMed/OpenMed-NER-PharmaDetect-SuperClinical-434M
+#   → auto-downloaded on first use via hf_pipeline("token-classification", model=...)
+#
+# HuggingFace embedding models (auto-downloaded via sentence-transformers):
+# neuml/pubmedbert-base-embeddings  — KB + claim embeddings (shared vector space)
+# pritamdeka/S-PubMedBert-MS-MARCO  — secondary KB embedding fallback
+# ========================================
+
+# ========================================
+# System Requirements Notes
+# ========================================
+# - Minimum RAM: 8GB (16GB recommended for optimal performance)
+# - Python 3.8+ required
+# - GPU support optional (CPU version specified for compatibility)
+# - Internet connection required for initial model downloads
+# ========================================
+
